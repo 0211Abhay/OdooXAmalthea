@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter, Calendar, DollarSign, Eye, Download, Users } from "lucide-react";
+import { Search, Filter, Calendar, DollarSign, Eye, Download, Users, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,13 +14,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { api, Expense, Category, User } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 const AllExpenses = () => {
   const navigate = useNavigate();
-  const { company } = useAuth();
+  const { company, user } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -31,6 +41,13 @@ const AllExpenses = () => {
   const [userFilter, setUserFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  
+  // Approval/Rejection dialog states
+  const [selectedExpense, setSelectedExpense] = useState<string | null>(null);
+  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [comment, setComment] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     fetchExpenses();
@@ -104,6 +121,95 @@ const AllExpenses = () => {
     // TODO: Implement export functionality
     toast.success("Export functionality coming soon!");
   };
+
+  const handleApprove = async () => {
+    if (!selectedExpense) return;
+    
+    setIsProcessing(true);
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+      const response = await fetch(`${API_BASE_URL}/expenses/${selectedExpense}/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          action: "APPROVED",
+          comments: comment.trim() || undefined
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to approve expense');
+      }
+      
+      toast.success("Expense approved successfully!");
+      setIsApproveDialogOpen(false);
+      setComment("");
+      setSelectedExpense(null);
+      
+      // Refresh the list
+      await fetchExpenses();
+    } catch (error: any) {
+      console.error("Approval error:", error);
+      toast.error(error?.message || "Failed to approve expense");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!selectedExpense || !comment.trim()) return;
+    
+    setIsProcessing(true);
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+      const response = await fetch(`${API_BASE_URL}/expenses/${selectedExpense}/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          action: "REJECTED",
+          comments: comment.trim()
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to reject expense');
+      }
+      
+      toast.success("Expense rejected");
+      setIsRejectDialogOpen(false);
+      setComment("");
+      setSelectedExpense(null);
+      
+      // Refresh the list
+      await fetchExpenses();
+    } catch (error: any) {
+      console.error("Rejection error:", error);
+      toast.error(error?.message || "Failed to reject expense");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const openApproveDialog = (expenseId: string) => {
+    setSelectedExpense(expenseId);
+    setIsApproveDialogOpen(true);
+  };
+
+  const openRejectDialog = (expenseId: string) => {
+    setSelectedExpense(expenseId);
+    setIsRejectDialogOpen(true);
+  };
+
+  // Check if user can approve/reject expenses
+  const canApproveReject = user?.role === 'ADMIN' || user?.isApprover;
 
   return (
     <DashboardLayout>
@@ -283,16 +389,42 @@ const AllExpenses = () => {
                     </div>
 
                     <div className="flex flex-col items-end gap-2">
-                      {expense.receiptUrl && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open(`http://localhost:5000${expense.receiptUrl}`, '_blank')}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View Receipt
-                        </Button>
-                      )}
+                      <div className="flex gap-2">
+                        {expense.receiptUrl && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(`http://localhost:5000${expense.receiptUrl}`, '_blank')}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View Receipt
+                          </Button>
+                        )}
+                        
+                        {/* Approval/Rejection buttons for pending/in-progress expenses */}
+                        {canApproveReject && (expense.status === 'PENDING' || expense.status === 'IN_PROGRESS') && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openRejectDialog(expense.id)}
+                              className="border-destructive/30 text-destructive hover:bg-destructive/10"
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Reject
+                            </Button>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => openApproveDialog(expense.id)}
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Approve
+                            </Button>
+                          </>
+                        )}
+                      </div>
                       
                       {expense.approvals && expense.approvals.length > 0 && (
                         <div className="text-right">
@@ -367,6 +499,101 @@ const AllExpenses = () => {
             </Button>
           </motion.div>
         )}
+
+        {/* Approve Dialog */}
+        <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+          <DialogContent className="bg-card">
+            <DialogHeader>
+              <DialogTitle>Approve Expense</DialogTitle>
+              <DialogDescription>
+                Add an optional comment for this approval
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="approve-comment">Comment (Optional)</Label>
+                <Textarea
+                  id="approve-comment"
+                  placeholder="Add a note..."
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  rows={4}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsApproveDialogOpen(false)}
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleApprove} 
+                className="bg-green-600 hover:bg-green-700"
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Approving...
+                  </>
+                ) : (
+                  "Approve"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Reject Dialog */}
+        <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+          <DialogContent className="bg-card">
+            <DialogHeader>
+              <DialogTitle>Reject Expense</DialogTitle>
+              <DialogDescription>
+                Please provide a reason for rejection
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="reject-comment">Reason for Rejection</Label>
+                <Textarea
+                  id="reject-comment"
+                  placeholder="Explain why this expense cannot be approved..."
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  rows={4}
+                  required
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsRejectDialogOpen(false)}
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleReject}
+                variant="destructive"
+                disabled={!comment.trim() || isProcessing}
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Rejecting...
+                  </>
+                ) : (
+                  "Reject"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

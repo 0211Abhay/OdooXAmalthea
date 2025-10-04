@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { DollarSign, TrendingUp, Clock, CheckCircle, BarChart3 } from "lucide-react";
+import { DollarSign, TrendingUp, Clock, CheckCircle, BarChart3, XCircle } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card } from "@/components/ui/card";
@@ -86,7 +86,7 @@ const Dashboard = () => {
     },
     {
       title: "Pending Approvals",
-      value: user?.isApprover ? stats.pendingApprovals.toString() : stats.pendingExpenses.toString(),
+      value: stats.pendingExpenses.toString(),
       icon: Clock,
       description: user?.isApprover ? "Awaiting your review" : "Awaiting review",
       variant: "warning" as const,
@@ -97,6 +97,13 @@ const Dashboard = () => {
       icon: CheckCircle,
       trend: { value: 0, isPositive: true },
       variant: "success" as const,
+    },
+    {
+      title: "Rejected Expenses",
+      value: stats.rejectedExpenses.toString(),
+      icon: XCircle,
+      trend: { value: 0, isPositive: false },
+      variant: "reject" as const,
     },
     {
       title: "Total Amount",
@@ -121,7 +128,7 @@ const Dashboard = () => {
         {/* Stats Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {loading ? (
-            Array.from({ length: 4 }).map((_, index) => (
+            Array.from({ length: 5 }).map((_, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, y: 20 }}
