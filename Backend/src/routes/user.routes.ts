@@ -2,6 +2,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma';
 import { authenticateToken, authorizeRoles, AuthRequest } from '../middleware/auth';
+import { emailService } from '../services/emailService';
 import { z } from 'zod';
 
 const router = express.Router();
@@ -111,7 +112,36 @@ router.post('/', authenticateToken, authorizeRoles('ADMIN'), async (req: AuthReq
       },
     });
 
-    res.status(201).json(user);
+    // Get company information for email
+    const company = await prisma.company.findUnique({
+      where: { id: req.companyId! },
+      select: { name: true }
+    });
+
+    // Send welcome email
+    try {
+      const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:8081'}/login`;
+      
+      await emailService.sendWelcomeEmail({
+        name: user.name,
+        email: user.email,
+        password: validatedData.password, // Send the plain password for first login
+        role: user.role,
+        companyName: company?.name || 'Your Organization',
+        loginUrl: loginUrl,
+      });
+
+      console.log(`Welcome email sent to ${user.email}`);
+    } catch (emailError) {
+      console.error('Failed to send welcome email:', emailError);
+      // Don't fail the user creation if email fails
+    }
+
+    res.status(201).json({
+      ...user,
+      emailSent: true,
+      message: 'User created successfully and welcome email sent'
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
@@ -242,6 +272,43 @@ router.get('/company/settings', authenticateToken, async (req: AuthRequest, res)
   } catch (error) {
     console.error('Get company settings error:', error);
     res.status(500).json({ error: 'Failed to fetch company settings' });
+  }
+});
+
+// Test email service (Admin only)
+router.post('/test-email', authenticateToken, authorizeRoles('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Get company information
+    const company = await prisma.company.findUnique({
+      where: { id: req.companyId! },
+      select: { name: true }
+    });
+
+    const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:8081'}/login`;
+    
+    const emailSent = await emailService.sendWelcomeEmail({
+      name: 'Test User',
+      email: email,
+      password: 'test123456',
+      role: 'EMPLOYEE',
+      companyName: company?.name || 'Your Organization',
+      loginUrl: loginUrl,
+    });
+
+    if (emailSent) {
+      res.json({ message: 'Test email sent successfully', email });
+    } else {
+      res.status(500).json({ error: 'Failed to send test email' });
+    }
+  } catch (error) {
+    console.error('Test email error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
