@@ -34,13 +34,6 @@ const Dashboard = () => {
     { month: "Jun", amount: 7200 },
   ];
 
-  // Static data for employees
-  const staticCategoryData = [
-    { category: "Travel", amount: 12500 },
-    { category: "Meals", amount: 8300 },
-    { category: "Supplies", amount: 5600 },
-    { category: "Software", amount: 9200 },
-  ];
 
   useEffect(() => {
     fetchDashboardData();
@@ -52,11 +45,9 @@ const Dashboard = () => {
       const dashboardStats = await api.getDashboardStats("30");
       setStats(dashboardStats);
 
-      // Only fetch category data for Manager and Admin roles
-      if (user?.role === "MANAGER" || user?.role === "ADMIN") {
-        const categoryStats = await api.getCategoryStats("30");
-        setCategoryData(categoryStats);
-      }
+      // Fetch category data for all roles
+      const categoryStats = await api.getCategoryStats("30");
+      setCategoryData(categoryStats);
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
       toast.error("Failed to load dashboard data");
@@ -208,14 +199,8 @@ const Dashboard = () => {
                 </h3>
               </div>
               {(() => {
-                // Use dynamic data for Manager/Admin, static data for Employee
-                const chartData = (user?.role === "MANAGER" || user?.role === "ADMIN") 
-                  ? categoryData 
-                  : staticCategoryData;
-
-                const isDynamic = (user?.role === "MANAGER" || user?.role === "ADMIN");
-
-                if (isDynamic && loading) {
+                // Show loading state while fetching data
+                if (loading) {
                   return (
                     <div className="flex items-center justify-center h-[300px]">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -223,7 +208,8 @@ const Dashboard = () => {
                   );
                 }
 
-                if (isDynamic && categoryData.length === 0) {
+                // Show empty state if no data
+                if (categoryData.length === 0) {
                   return (
                     <div className="flex items-center justify-center h-[300px] text-muted-foreground">
                       <div className="text-center">
@@ -235,16 +221,17 @@ const Dashboard = () => {
                   );
                 }
 
+                // Show dynamic chart for all roles
                 return (
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={chartData}>
+                    <BarChart data={categoryData}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                       <XAxis 
                         dataKey="category" 
                         className="text-xs text-muted-foreground"
-                        angle={isDynamic ? -45 : 0}
-                        textAnchor={isDynamic ? "end" : "middle"}
-                        height={isDynamic ? 80 : 30}
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
                       />
                       <YAxis className="text-xs text-muted-foreground" />
                       <Tooltip
