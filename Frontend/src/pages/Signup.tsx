@@ -38,11 +38,8 @@ const Signup = () => {
     setIsLoading(true);
 
     try {
-      // For now, pass the original parameters - you can extend the signup function later
       await signup(name, email, password, company);
       
-      // TODO: Store country and currency information in user profile
-      // You can add an API call here to save additional user preferences
       console.log('Selected country:', country?.name?.common);
       console.log('Selected currency:', currency);
       
