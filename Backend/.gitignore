@@ -3,3 +3,6 @@ node_modules
 .env
 
 /generated/prisma
+
+# Prisma migrations - exclude from version control
+prisma/migrations/

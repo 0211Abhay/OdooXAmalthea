@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../lib/prisma';
-import { authenticate, authorizeRoles, AuthRequest } from '../middleware/auth';
+import { authenticateToken, authorizeRoles, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 
 const router = express.Router();
@@ -9,6 +9,7 @@ const router = express.Router();
 const createUserSchema = z.object({
   email: z.string().email(),
   name: z.string().min(2),
+  password: z.string().min(6),
   role: z.enum(['EMPLOYEE', 'MANAGER', 'ADMIN']),
   isApprover: z.boolean().optional().default(false),
   approverLevel: z.number().optional(),
@@ -21,7 +22,7 @@ const updateUserSchema = z.object({
 });
 
 // Get all users in company (Admin only)
-router.get('/', authenticate, authorizeRoles('ADMIN'), async (req: AuthRequest, res) => {
+router.get('/', authenticateToken, authorizeRoles('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const users = await prisma.user.findMany({
       where: { companyId: req.companyId },
@@ -51,7 +52,7 @@ router.get('/', authenticate, authorizeRoles('ADMIN'), async (req: AuthRequest, 
 });
 
 // Get managers (for assignment)
-router.get('/managers', authenticate, async (req: AuthRequest, res) => {
+router.get('/managers', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const managers = await prisma.user.findMany({
       where: {
@@ -74,7 +75,7 @@ router.get('/managers', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Create user (Admin only)
-router.post('/', authenticate, authorizeRoles('ADMIN'), async (req: AuthRequest, res) => {
+router.post('/', authenticateToken, authorizeRoles('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const validatedData = createUserSchema.parse(req.body);
 
@@ -86,10 +87,14 @@ router.post('/', authenticate, authorizeRoles('ADMIN'), async (req: AuthRequest,
       return res.status(400).json({ error: 'User already exists' });
     }
 
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+
     const user = await prisma.user.create({
       data: {
         email: validatedData.email,
         name: validatedData.name,
+        password: hashedPassword,
         role: validatedData.role,
         isApprover: validatedData.isApprover,
         approverLevel: validatedData.approverLevel,
@@ -117,7 +122,7 @@ router.post('/', authenticate, authorizeRoles('ADMIN'), async (req: AuthRequest,
 });
 
 // Update user (Admin only)
-router.patch('/:id', authenticate, authorizeRoles('ADMIN'), async (req: AuthRequest, res) => {
+router.put('/:id', authenticateToken, authorizeRoles('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const validatedData = updateUserSchema.parse(req.body);
@@ -147,7 +152,7 @@ router.patch('/:id', authenticate, authorizeRoles('ADMIN'), async (req: AuthRequ
 });
 
 // Delete user (Admin only)
-router.delete('/:id', authenticate, authorizeRoles('ADMIN'), async (req: AuthRequest, res) => {
+router.delete('/:id', authenticateToken, authorizeRoles('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
 
@@ -163,7 +168,7 @@ router.delete('/:id', authenticate, authorizeRoles('ADMIN'), async (req: AuthReq
 });
 
 // Get approvers list
-router.get('/approvers', authenticate, async (req: AuthRequest, res) => {
+router.get('/approvers', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const approvers = await prisma.user.findMany({
       where: { 
@@ -189,7 +194,7 @@ router.get('/approvers', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Update company approval settings (Admin only)
-router.put('/company/approval-settings', authenticate, authorizeRoles('ADMIN'), async (req: AuthRequest, res) => {
+router.put('/company/approval-settings', authenticateToken, authorizeRoles('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const { sequentialApproval, minimumApprovalPercent } = req.body;
 
@@ -216,7 +221,7 @@ router.put('/company/approval-settings', authenticate, authorizeRoles('ADMIN'), 
 });
 
 // Get company settings
-router.get('/company/settings', authenticate, async (req: AuthRequest, res) => {
+router.get('/company/settings', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const company = await prisma.company.findUnique({
       where: { id: req.companyId! },

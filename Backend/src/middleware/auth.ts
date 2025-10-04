@@ -48,8 +48,8 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
       }
     });
 
-    if (!user || !user.isActive) {
-      return res.status(401).json({ error: 'User not found or inactive' });
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
     }
 
     req.userId = user.id;

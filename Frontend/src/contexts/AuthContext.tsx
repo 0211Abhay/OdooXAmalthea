@@ -1,82 +1,116 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { api, User, Company } from "@/lib/api";
 
-type UserRole = "employee" | "manager" | "admin";
+type UserRole = "EMPLOYEE" | "MANAGER" | "ADMIN";
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  company: string;
-  managerId?: string;
+interface AuthUser extends User {
+  company?: Company;
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
+  company: Company | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string, company: string) => Promise<void>;
+  signup: (name: string, email: string, password: string, companyName: string, country: string, currency: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for existing auth data on app load
+    const token = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    const storedCompany = localStorage.getItem("company");
+
+    if (token && storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        const companyData = storedCompany ? JSON.parse(storedCompany) : null;
+        setUser(userData);
+        setCompany(companyData);
+      } catch (error) {
+        console.error("Failed to parse stored auth data:", error);
+        logout();
+      }
     }
+    
+    setLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    // Mock user data based on email
-    const mockUser: User = {
-      id: "1",
-      name: email.split("@")[0],
-      email,
-      role: email.includes("admin") ? "admin" : email.includes("manager") ? "manager" : "employee",
-      company: "Demo Company",
-    };
-    
-    setUser(mockUser);
-    localStorage.setItem("user", JSON.stringify(mockUser));
+    try {
+      const response = await api.login({ email, password });
+      
+      // Store auth data
+      localStorage.setItem("token", response.token);
+      localStorage.setItem("user", JSON.stringify(response.user));
+      localStorage.setItem("company", JSON.stringify(response.company));
+      
+      setUser(response.user);
+      setCompany(response.company);
+    } catch (error) {
+      console.error("Login failed:", error);
+      throw error;
+    }
   };
 
-  const signup = async (name: string, email: string, password: string, company: string) => {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    const newUser: User = {
-      id: Date.now().toString(),
-      name,
-      email,
-      role: "admin", // First user becomes admin
-      company,
-    };
-    
-    setUser(newUser);
-    localStorage.setItem("user", JSON.stringify(newUser));
+  const signup = async (
+    name: string, 
+    email: string, 
+    password: string, 
+    companyName: string,
+    country: string,
+    currency: string
+  ) => {
+    try {
+      const response = await api.signup({
+        name,
+        email,
+        password,
+        companyName,
+        country,
+        currency,
+      });
+      
+      // Store auth data
+      localStorage.setItem("token", response.token);
+      localStorage.setItem("user", JSON.stringify(response.user));
+      localStorage.setItem("company", JSON.stringify(response.company));
+      
+      setUser(response.user);
+      setCompany(response.company);
+    } catch (error) {
+      console.error("Signup failed:", error);
+      throw error;
+    }
   };
 
   const logout = () => {
     setUser(null);
+    setCompany(null);
+    localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("company");
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        company,
         login,
         signup,
         logout,
         isAuthenticated: !!user,
+        loading,
       }}
     >
       {children}

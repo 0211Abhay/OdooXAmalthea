@@ -15,7 +15,7 @@
   "license": "ISC",
   "description": "Expense Management System Backend",
   "dependencies": {
-    "@prisma/client": "^6.2.0",
+    "@prisma/client": "^6.16.3",
     "@types/multer": "^2.0.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -31,7 +31,7 @@
     "@types/express": "^5.0.2",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.10.6",
-    "prisma": "^6.2.0",
+    "prisma": "^6.16.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   }

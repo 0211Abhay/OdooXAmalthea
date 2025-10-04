@@ -73,7 +73,7 @@ const App = () => (
               <Route
                 path="/employee/submit-expense"
                 element={
-                  <ProtectedRoute allowedRoles={["employee", "manager", "admin"]}>
+                  <ProtectedRoute allowedRoles={["EMPLOYEE", "MANAGER", "ADMIN"]}>
                     <SubmitExpense />
                   </ProtectedRoute>
                 }
@@ -81,7 +81,7 @@ const App = () => (
               <Route
                 path="/employee/history"
                 element={
-                  <ProtectedRoute allowedRoles={["employee", "manager", "admin"]}>
+                  <ProtectedRoute allowedRoles={["EMPLOYEE", "MANAGER", "ADMIN"]}>
                     <ExpenseHistory />
                   </ProtectedRoute>
                 }
@@ -89,7 +89,7 @@ const App = () => (
               <Route
                 path="/employee/status/:id"
                 element={
-                  <ProtectedRoute allowedRoles={["employee", "manager", "admin"]}>
+                  <ProtectedRoute allowedRoles={["EMPLOYEE", "MANAGER", "ADMIN"]}>
                     <ExpenseStatus />
                   </ProtectedRoute>
                 }
@@ -99,7 +99,7 @@ const App = () => (
               <Route
                 path="/manager/pending"
                 element={
-                  <ProtectedRoute allowedRoles={["manager", "admin"]}>
+                  <ProtectedRoute allowedRoles={["MANAGER", "ADMIN"]}>
                     <PendingApprovals />
                   </ProtectedRoute>
                 }
@@ -107,7 +107,7 @@ const App = () => (
               <Route
                 path="/manager/team"
                 element={
-                  <ProtectedRoute allowedRoles={["manager", "admin"]}>
+                  <ProtectedRoute allowedRoles={["MANAGER", "ADMIN"]}>
                     <TeamExpenses />
                   </ProtectedRoute>
                 }
@@ -115,7 +115,7 @@ const App = () => (
               <Route
                 path="/manager/expense/:id"
                 element={
-                  <ProtectedRoute allowedRoles={["manager", "admin"]}>
+                  <ProtectedRoute allowedRoles={["MANAGER", "ADMIN"]}>
                     <ExpenseStatus />
                   </ProtectedRoute>
                 }
@@ -125,7 +125,7 @@ const App = () => (
               <Route
                 path="/admin/users"
                 element={
-                  <ProtectedRoute allowedRoles={["admin"]}>
+                  <ProtectedRoute allowedRoles={["ADMIN"]}>
                     <UserManagement />
                   </ProtectedRoute>
                 }
@@ -133,7 +133,7 @@ const App = () => (
               <Route
                 path="/admin/approvals"
                 element={
-                  <ProtectedRoute allowedRoles={["admin"]}>
+                  <ProtectedRoute allowedRoles={["ADMIN"]}>
                     <ApprovalFlow />
                   </ProtectedRoute>
                 }
@@ -141,7 +141,7 @@ const App = () => (
               <Route
                 path="/admin/rules"
                 element={
-                  <ProtectedRoute allowedRoles={["admin"]}>
+                  <ProtectedRoute allowedRoles={["ADMIN"]}>
                     <Rules />
                   </ProtectedRoute>
                 }
@@ -149,7 +149,7 @@ const App = () => (
               <Route
                 path="/admin/expenses"
                 element={
-                  <ProtectedRoute allowedRoles={["admin"]}>
+                  <ProtectedRoute allowedRoles={["ADMIN"]}>
                     <AllExpenses />
                   </ProtectedRoute>
                 }

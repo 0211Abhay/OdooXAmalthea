@@ -38,15 +38,17 @@ const Signup = () => {
     setIsLoading(true);
 
     try {
-      await signup(name, email, password, company);
+      const countryName = (country as any)?.name?.common || "United States";
+      const currencyCode = currency || "USD";
       
-      console.log('Selected country:', country?.name?.common);
-      console.log('Selected currency:', currency);
+      await signup(name, email, password, company, countryName, currencyCode);
       
       toast.success("Account created successfully!");
       navigate("/dashboard");
-    } catch (error) {
-      toast.error("Signup failed. Please try again.");
+    } catch (error: any) {
+      console.error("Signup error:", error);
+      const errorMessage = error?.message || "Signup failed. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

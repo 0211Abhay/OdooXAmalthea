@@ -4,11 +4,19 @@ import { ReactNode } from "react";
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  allowedRoles?: ("employee" | "manager" | "admin")[];
+  allowedRoles?: ("EMPLOYEE" | "MANAGER" | "ADMIN")[];
 }
 
 export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
