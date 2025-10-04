@@ -44,6 +44,7 @@ enum ApprovalRuleType {
 model Company {
   id                     String   @id @default(cuid())
   name                   String
+  country                String   // Country where the company is located
   currency               String   @default("USD") // Base currency for the company
   sequentialApproval     Boolean  @default(false) // If true, approvals must be sequential
   minimumApprovalPercent Int      @default(50) // Minimum percentage of approvers needed
@@ -63,6 +64,7 @@ model User {
   id           String   @id @default(cuid())
   email        String   @unique
   name         String
+  password     String   // Hashed password
   role         Role     @default(EMPLOYEE)
   companyId    String
   company      Company  @relation(fields: [companyId], references: [id])
