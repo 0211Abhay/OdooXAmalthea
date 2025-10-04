@@ -117,6 +117,11 @@ export const api = {
     return apiCall<DashboardStats>(`/expenses/stats/dashboard${query}`);
   },
 
+  getCategoryStats: (timeframe?: string) => {
+    const query = timeframe ? `?timeframe=${timeframe}` : "";
+    return apiCall<CategoryStat[]>(`/expenses/stats/categories${query}`);
+  },
+
   // Users
   getUsers: () => apiCall<User[]>("/users"),
 
@@ -343,6 +348,12 @@ export interface DashboardStats {
   rejectedExpenses: number;
   totalAmount: number;
   pendingApprovals: number;
+}
+
+export interface CategoryStat {
+  category: string;
+  amount: number;
+  count: number;
 }
 
 export interface CreateUserData {
