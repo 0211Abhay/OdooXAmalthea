@@ -23,8 +23,8 @@ const ExpenseHistory = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -41,8 +41,8 @@ const ExpenseHistory = () => {
         limit: 10,
       };
 
-      if (statusFilter) params.status = statusFilter;
-      if (categoryFilter) params.category = categoryFilter;
+      if (statusFilter && statusFilter !== "all") params.status = statusFilter;
+      if (categoryFilter && categoryFilter !== "all") params.category = categoryFilter;
 
       const response = await api.getExpenses(params);
       setExpenses(response.expenses);
@@ -127,7 +127,7 @@ const ExpenseHistory = () => {
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="PENDING">Pending</SelectItem>
                   <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
                   <SelectItem value="APPROVED">Approved</SelectItem>
@@ -140,7 +140,7 @@ const ExpenseHistory = () => {
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Categories</SelectItem>
+                  <SelectItem value="all">All Categories</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
                       {category.name}
@@ -152,8 +152,8 @@ const ExpenseHistory = () => {
               <Button
                 variant="outline"
                 onClick={() => {
-                  setStatusFilter("");
-                  setCategoryFilter("");
+                  setStatusFilter("all");
+                  setCategoryFilter("all");
                   setSearchTerm("");
                 }}
               >
