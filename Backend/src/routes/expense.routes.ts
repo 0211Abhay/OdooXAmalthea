@@ -579,6 +579,67 @@ router.get('/stats/dashboard', authenticateToken, async (req: AuthRequest, res: 
   }
 });
 
+// Get expense statistics by category for dashboard
+router.get('/stats/categories', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user!;
+    const { timeframe = '30' } = req.query;
+    const days = parseInt(timeframe as string);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    let baseWhere: any = {
+      companyId: user.companyId,
+      createdAt: { gte: startDate }
+    };
+
+    // Role-based filtering
+    if (user.role === 'EMPLOYEE') {
+      baseWhere.userId = user.id;
+    }
+
+    // Get category statistics
+    const categoryStats = await prisma.expense.groupBy({
+      by: ['categoryId'],
+      where: baseWhere,
+      _sum: {
+        amount: true
+      },
+      _count: {
+        id: true
+      }
+    });
+
+    // Get category names
+    const categoryIds = categoryStats.map(stat => stat.categoryId).filter(id => id !== null);
+    const categories = await prisma.expenseCategory.findMany({
+      where: {
+        id: { in: categoryIds },
+        companyId: user.companyId
+      },
+      select: {
+        id: true,
+        name: true
+      }
+    });
+
+    // Combine data
+    const result = categoryStats.map(stat => {
+      const category = categories.find(cat => cat.id === stat.categoryId);
+      return {
+        category: category?.name || 'Uncategorized',
+        amount: stat._sum.amount || 0,
+        count: stat._count.id
+      };
+    }).sort((a, b) => b.amount - a.amount);
+
+    res.json(result);
+  } catch (error) {
+    console.error('Get category stats error:', error);
+    res.status(500).json({ error: 'Failed to fetch category statistics' });
+  }
+});
+
 // Helper function to initialize approval workflow
 async function initializeApprovalWorkflow(expenseId: string, companyId: string) {
   try {
