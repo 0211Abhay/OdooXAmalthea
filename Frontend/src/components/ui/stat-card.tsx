@@ -12,7 +12,7 @@ interface StatCardProps {
     value: number;
     isPositive: boolean;
   };
-  variant?: "default" | "success" | "warning" | "accent";
+  variant?: "default" | "success" | "warning" | "accent" | "reject";
 }
 
 export const StatCard = ({
@@ -28,6 +28,7 @@ export const StatCard = ({
     success: "from-success/10 to-success/5",
     warning: "from-warning/10 to-warning/5",
     accent: "from-accent/10 to-accent/5",
+    reject: "from-destructive/10 to-destructive/5",
   };
 
   const iconStyles = {
@@ -35,6 +36,7 @@ export const StatCard = ({
     success: "bg-success text-success-foreground",
     warning: "bg-warning text-warning-foreground",
     accent: "bg-accent text-accent-foreground",
+    reject: "bg-destructive text-destructive-foreground",
   };
 
   return (

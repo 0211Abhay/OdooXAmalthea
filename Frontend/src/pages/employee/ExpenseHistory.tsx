@@ -250,7 +250,7 @@ const ExpenseHistory = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => window.open(`http://localhost:5000${expense.receiptUrl}`, '_blank')}
+                          onClick={() => window.open(`http://localhost:3001${expense.receiptUrl}`, '_blank')}
                         >
                           <Eye className="h-4 w-4 mr-1" />
                           View Receipt

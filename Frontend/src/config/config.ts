@@ -1,6 +1,6 @@
 // Environment configuration
 export const config = {
-  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api',
   API_TIMEOUT: parseInt(import.meta.env.VITE_API_TIMEOUT || '10000'),
   
   // External APIs

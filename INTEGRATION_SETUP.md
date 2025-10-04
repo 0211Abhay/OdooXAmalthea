@@ -15,7 +15,7 @@ npm install
 ### 3. Setup Environment Variables
 Create a `.env` file in the Backend directory with:
 ```env
-PORT=5000
+PORT=3001
 DATABASE_URL="your_postgres_connection_string"
 JWT_SECRET="your_jwt_secret_key"
 JWT_EXPIRES_IN="7d"
