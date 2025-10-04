@@ -8,22 +8,41 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { CountryCurrencySelect } from "../components/CountryCurrencySelect";
 
 const Signup = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [company, setCompany] = useState("");
+  const [country, setCountry] = useState(null);
+  const [currency, setCurrency] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const { signup } = useAuth();
   const navigate = useNavigate();
 
+  const handleCountryChange = (selectedCountry: any, selectedCurrency: string | null) => {
+    setCountry(selectedCountry);
+    setCurrency(selectedCurrency);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate required fields
+    if (!country || !currency) {
+      toast.error("Please select your country and currency.");
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
       await signup(name, email, password, company);
+      
+      console.log('Selected country:', country?.name?.common);
+      console.log('Selected currency:', currency);
+      
       toast.success("Account created successfully!");
       navigate("/dashboard");
     } catch (error) {
@@ -129,6 +148,15 @@ const Signup = () => {
                       required
                     />
                   </div>
+                </div>
+
+                {/* Country & Currency Selector */}
+                <div className="space-y-2">
+                  <CountryCurrencySelect 
+                    onCountryChange={handleCountryChange}
+                    value={{ country, currency }}
+                    required={true}
+                  />
                 </div>
 
                 <Button
