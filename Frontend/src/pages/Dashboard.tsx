@@ -5,7 +5,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, DashboardStats } from "@/lib/api";
+import { api, DashboardStats, CategoryStat } from "@/lib/api";
 import { toast } from "sonner";
 import {
   BarChart,
@@ -22,6 +22,7 @@ import {
 const Dashboard = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [categoryData, setCategoryData] = useState<CategoryStat[]>([]);
   const [loading, setLoading] = useState(true);
 
   const expenseData = [
@@ -33,23 +34,21 @@ const Dashboard = () => {
     { month: "Jun", amount: 7200 },
   ];
 
-  const categoryData = [
-    { category: "Travel", amount: 12500 },
-    { category: "Meals", amount: 8300 },
-    { category: "Supplies", amount: 5600 },
-    { category: "Software", amount: 9200 },
-  ];
-
   useEffect(() => {
-    fetchDashboardStats();
+    fetchDashboardData();
   }, []);
 
-  const fetchDashboardStats = async () => {
+  const fetchDashboardData = async () => {
     try {
-      const dashboardStats = await api.getDashboardStats("30");
+      const [dashboardStats, categoryStats] = await Promise.all([
+        api.getDashboardStats("30"),
+        api.getCategoryStats("30")
+      ]);
+      
       setStats(dashboardStats);
+      setCategoryData(categoryStats);
     } catch (error) {
-      console.error("Failed to fetch dashboard stats:", error);
+      console.error("Failed to fetch dashboard data:", error);
       toast.error("Failed to load dashboard data");
       
       // Fallback stats
@@ -61,6 +60,7 @@ const Dashboard = () => {
         totalAmount: 0,
         pendingApprovals: 0,
       });
+      setCategoryData([]);
     } finally {
       setLoading(false);
     }
@@ -190,21 +190,42 @@ const Dashboard = () => {
                   Expenses by Category
                 </h3>
               </div>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={categoryData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="category" className="text-xs text-muted-foreground" />
-                  <YAxis className="text-xs text-muted-foreground" />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "var(--radius)",
-                    }}
-                  />
-                  <Bar dataKey="amount" fill="hsl(var(--accent))" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {loading ? (
+                <div className="flex items-center justify-center h-[300px]">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : categoryData.length === 0 ? (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  <div className="text-center">
+                    <BarChart3 className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                    <p>No expense data available</p>
+                    <p className="text-sm">Submit some expenses to see category breakdown</p>
+                  </div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={categoryData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis 
+                      dataKey="category" 
+                      className="text-xs text-muted-foreground"
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
+                    <YAxis className="text-xs text-muted-foreground" />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "var(--radius)",
+                      }}
+                      formatter={(value: number) => [`$${value.toFixed(2)}`, 'Amount']}
+                    />
+                    <Bar dataKey="amount" fill="hsl(var(--accent))" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </Card>
           </motion.div>
         </div>
