@@ -34,19 +34,29 @@ const Dashboard = () => {
     { month: "Jun", amount: 7200 },
   ];
 
+  // Static data for employees
+  const staticCategoryData = [
+    { category: "Travel", amount: 12500 },
+    { category: "Meals", amount: 8300 },
+    { category: "Supplies", amount: 5600 },
+    { category: "Software", amount: 9200 },
+  ];
+
   useEffect(() => {
     fetchDashboardData();
   }, []);
 
   const fetchDashboardData = async () => {
     try {
-      const [dashboardStats, categoryStats] = await Promise.all([
-        api.getDashboardStats("30"),
-        api.getCategoryStats("30")
-      ]);
-      
+      // Always fetch dashboard stats
+      const dashboardStats = await api.getDashboardStats("30");
       setStats(dashboardStats);
-      setCategoryData(categoryStats);
+
+      // Only fetch category data for Manager and Admin roles
+      if (user?.role === "MANAGER" || user?.role === "ADMIN") {
+        const categoryStats = await api.getCategoryStats("30");
+        setCategoryData(categoryStats);
+      }
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error);
       toast.error("Failed to load dashboard data");
@@ -190,42 +200,59 @@ const Dashboard = () => {
                   Expenses by Category
                 </h3>
               </div>
-              {loading ? (
-                <div className="flex items-center justify-center h-[300px]">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : categoryData.length === 0 ? (
-                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                  <div className="text-center">
-                    <BarChart3 className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                    <p>No expense data available</p>
-                    <p className="text-sm">Submit some expenses to see category breakdown</p>
-                  </div>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={categoryData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis 
-                      dataKey="category" 
-                      className="text-xs text-muted-foreground"
-                      angle={-45}
-                      textAnchor="end"
-                      height={80}
-                    />
-                    <YAxis className="text-xs text-muted-foreground" />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "var(--radius)",
-                      }}
-                      formatter={(value: number) => [`$${value.toFixed(2)}`, 'Amount']}
-                    />
-                    <Bar dataKey="amount" fill="hsl(var(--accent))" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
+              {(() => {
+                // Use dynamic data for Manager/Admin, static data for Employee
+                const chartData = (user?.role === "MANAGER" || user?.role === "ADMIN") 
+                  ? categoryData 
+                  : staticCategoryData;
+
+                const isDynamic = (user?.role === "MANAGER" || user?.role === "ADMIN");
+
+                if (isDynamic && loading) {
+                  return (
+                    <div className="flex items-center justify-center h-[300px]">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    </div>
+                  );
+                }
+
+                if (isDynamic && categoryData.length === 0) {
+                  return (
+                    <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                      <div className="text-center">
+                        <BarChart3 className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                        <p>No expense data available</p>
+                        <p className="text-sm">Submit some expenses to see category breakdown</p>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                      <XAxis 
+                        dataKey="category" 
+                        className="text-xs text-muted-foreground"
+                        angle={isDynamic ? -45 : 0}
+                        textAnchor={isDynamic ? "end" : "middle"}
+                        height={isDynamic ? 80 : 30}
+                      />
+                      <YAxis className="text-xs text-muted-foreground" />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "var(--radius)",
+                        }}
+                        formatter={(value: number) => [`$${value.toFixed(2)}`, 'Amount']}
+                      />
+                      <Bar dataKey="amount" fill="hsl(var(--accent))" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                );
+              })()}
             </Card>
           </motion.div>
         </div>
