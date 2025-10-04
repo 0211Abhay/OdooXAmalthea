@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { UserPlus, MoreVertical, Mail, Shield, Eye, EyeOff } from "lucide-react";
+import { UserPlus, MoreVertical, Mail, Shield, Eye, EyeOff, Edit, Trash2, UserCog } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -54,6 +54,19 @@ const UserManagement = () => {
   const [loading, setLoading] = useState(true);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTestEmailOpen, setIsTestEmailOpen] = useState(false);
+  const [testEmail, setTestEmail] = useState("");
+  const [isTestEmailSubmitting, setIsTestEmailSubmitting] = useState(false);
+  
+  // Edit user state
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editUserName, setEditUserName] = useState("");
+  const [editUserEmail, setEditUserEmail] = useState("");
+  const [editUserRole, setEditUserRole] = useState<"EMPLOYEE" | "MANAGER" | "ADMIN">("EMPLOYEE");
+  const [editIsApprover, setEditIsApprover] = useState(false);
+  const [editApproverLevel, setEditApproverLevel] = useState<number>(1);
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
   
   // Form state
   const [newUserName, setNewUserName] = useState("");
@@ -113,7 +126,12 @@ const UserManagement = () => {
       // Add to local state
       setUsers(prev => [newUser, ...prev]);
       
-      toast.success(`User ${newUser.name} added successfully!`);
+      // Show success message with email status
+      if (newUser.emailSent) {
+        toast.success(`User ${newUser.name} added successfully! Welcome email sent to ${newUser.email}`);
+      } else {
+        toast.success(`User ${newUser.name} added successfully! (Email may not have been sent)`);
+      }
       
       // Reset form
       setIsAddUserOpen(false);
@@ -130,6 +148,97 @@ const UserManagement = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleTestEmail = async () => {
+    if (!testEmail) {
+      toast.error("Please enter an email address");
+      return;
+    }
+
+    setIsTestEmailSubmitting(true);
+    try {
+      const response = await fetch('/api/users/test-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ email: testEmail }),
+      });
+
+      if (response.ok) {
+        toast.success(`Test email sent to ${testEmail}`);
+        setIsTestEmailOpen(false);
+        setTestEmail("");
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to send test email");
+      }
+    } catch (error: any) {
+      console.error("Test email error:", error);
+      toast.error("Failed to send test email");
+    } finally {
+      setIsTestEmailSubmitting(false);
+    }
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setEditUserName(user.name);
+    setEditUserEmail(user.email);
+    setEditUserRole(user.role);
+    setEditIsApprover(user.isApprover);
+    setEditApproverLevel(user.approverLevel || 1);
+    setIsEditUserOpen(true);
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editingUser || !editUserName || !editUserEmail) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    setIsEditSubmitting(true);
+    try {
+      const updatedUser = await api.updateUser(editingUser.id, {
+        name: editUserName,
+        email: editUserEmail,
+        role: editUserRole,
+        isApprover: editIsApprover,
+        approverLevel: editIsApprover ? editApproverLevel : undefined,
+      });
+
+      // Update local state
+      setUsers(prev => prev.map(u => u.id === editingUser.id ? { ...u, ...updatedUser } : u));
+      
+      toast.success(`User ${updatedUser.name} updated successfully!`);
+      
+      // Reset form
+      setIsEditUserOpen(false);
+      setEditingUser(null);
+      setEditUserName("");
+      setEditUserEmail("");
+      setEditUserRole("EMPLOYEE");
+      setEditIsApprover(false);
+      setEditApproverLevel(1);
+    } catch (error: any) {
+      console.error("Update user error:", error);
+      const errorMessage = error?.message || "Failed to update user";
+      toast.error(errorMessage);
+    } finally {
+      setIsEditSubmitting(false);
+    }
+  };
+
+  const handleChangeRole = (user: User) => {
+    setEditingUser(user);
+    setEditUserName(user.name);
+    setEditUserEmail(user.email);
+    setEditUserRole(user.role);
+    setEditIsApprover(user.isApprover);
+    setEditApproverLevel(user.approverLevel || 1);
+    setIsEditUserOpen(true);
   };
 
   const handleDeleteUser = async (userId: string, userName: string) => {
@@ -150,7 +259,9 @@ const UserManagement = () => {
       console.error("Delete user error:", error);
       toast.error(error?.message || "Failed to delete user");
     }
-  };  const roleColors = {
+  };
+
+  const roleColors = {
     ADMIN: "bg-destructive/10 text-destructive border-destructive/20",
     MANAGER: "bg-warning/10 text-warning border-warning/20",
     EMPLOYEE: "bg-accent/10 text-accent border-accent/20",
@@ -186,13 +297,23 @@ const UserManagement = () => {
               Manage team members and their roles
             </p>
           </div>
-          <Button
-            onClick={() => setIsAddUserOpen(true)}
-            className="bg-gradient-primary shadow-glow"
-          >
-            <UserPlus className="mr-2 h-4 w-4" />
-            Add User
-          </Button>
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={() => setIsAddUserOpen(true)}
+              className="bg-gradient-primary shadow-glow"
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              Add User
+            </Button>
+            <Button
+              onClick={() => setTestEmailOpen(true)}
+              variant="outline"
+              className="border-primary/20 hover:bg-primary/5"
+            >
+              <Mail className="mr-2 h-4 w-4" />
+              Test Email
+            </Button>
+          </div>
         </div>
 
         <motion.div
@@ -258,13 +379,20 @@ const UserManagement = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="z-50 bg-popover">
-                          <DropdownMenuItem>Edit User</DropdownMenuItem>
-                          <DropdownMenuItem>Change Role</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit User
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleChangeRole(user)}>
+                            <UserCog className="mr-2 h-4 w-4" />
+                            Change Role
+                          </DropdownMenuItem>
                           {user.id !== currentUser?.id && (
                             <DropdownMenuItem 
                               className="text-destructive"
                               onClick={() => handleDeleteUser(user.id, user.name)}
                             >
+                              <Trash2 className="mr-2 h-4 w-4" />
                               Delete User
                             </DropdownMenuItem>
                           )}
@@ -422,6 +550,160 @@ const UserManagement = () => {
                 disabled={!newUserName || !newUserEmail || !newUserPassword || !newUserRole || isSubmitting}
               >
                 {isSubmitting ? "Creating..." : "Create User"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Test Email Dialog */}
+        <Dialog open={isTestEmailOpen} onOpenChange={setIsTestEmailOpen}>
+          <DialogContent className="bg-card">
+            <DialogHeader>
+              <DialogTitle>Test Email Service</DialogTitle>
+              <DialogDescription>
+                Send a test welcome email to verify email configuration
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="test-email">Email Address</Label>
+                <Input
+                  id="test-email"
+                  type="email"
+                  placeholder="test@example.com"
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsTestEmailOpen(false)}
+                disabled={isTestEmailSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleTestEmail}
+                disabled={isTestEmailSubmitting || !testEmail}
+                className="bg-gradient-primary shadow-glow"
+              >
+                {isTestEmailSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Send Test Email
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit User Dialog */}
+        <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
+          <DialogContent className="bg-card">
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription>
+                Update user information and role
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-user-name">Full Name *</Label>
+                <Input
+                  id="edit-user-name"
+                  placeholder="John Doe"
+                  value={editUserName}
+                  onChange={(e) => setEditUserName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-user-email">Email *</Label>
+                <Input
+                  id="edit-user-email"
+                  type="email"
+                  placeholder="john@company.com"
+                  value={editUserEmail}
+                  onChange={(e) => setEditUserEmail(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-user-role">Role *</Label>
+                <Select 
+                  value={editUserRole} 
+                  onValueChange={(value: "EMPLOYEE" | "MANAGER" | "ADMIN") => setEditUserRole(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="z-50 bg-popover">
+                    <SelectItem value="EMPLOYEE">Employee</SelectItem>
+                    <SelectItem value="MANAGER">Manager</SelectItem>
+                    <SelectItem value="ADMIN">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="edit-is-approver"
+                  checked={editIsApprover}
+                  onCheckedChange={(checked) => setEditIsApprover(checked as boolean)}
+                />
+                <Label htmlFor="edit-is-approver" className="text-sm">
+                  Can approve expenses
+                </Label>
+              </div>
+              
+              {editIsApprover && (
+                <div className="space-y-2 ml-6">
+                  <Label htmlFor="edit-approver-level">Approver Level</Label>
+                  <Select 
+                    value={editApproverLevel.toString()} 
+                    onValueChange={(value) => setEditApproverLevel(parseInt(value))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="z-50 bg-popover">
+                      <SelectItem value="1">Level 1 (First Approver)</SelectItem>
+                      <SelectItem value="2">Level 2 (Second Approver)</SelectItem>
+                      <SelectItem value="3">Level 3 (Final Approver)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Lower numbers approve first in sequential approval flows
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsEditUserOpen(false)}
+                disabled={isEditSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpdateUser}
+                disabled={!editUserName || !editUserEmail || isEditSubmitting}
+                className="bg-gradient-primary shadow-glow"
+              >
+                {isEditSubmitting ? "Updating..." : "Update User"}
               </Button>
             </DialogFooter>
           </DialogContent>

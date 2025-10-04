@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '../../generated/prisma';
 import { authenticateToken } from '../middleware/auth';
+import { emailService } from '../services/emailService';
 import { z } from 'zod';
 import multer from 'multer';
 import path from 'path';
@@ -282,10 +283,16 @@ router.post('/:id/approve', authenticateToken, async (req: AuthRequest, res: Res
     const user = req.user!;
     const { action, comments } = approveRejectSchema.parse(req.body);
 
-    // Get the expense with current approvals
+    // Get the expense with current approvals and user information
     const expense = await prisma.expense.findUnique({
       where: { id },
       include: {
+        user: {
+          select: { id: true, name: true, email: true }
+        },
+        company: {
+          select: { name: true }
+        },
         approvals: {
           where: { approverId: user.id },
           orderBy: { step: 'asc' }
@@ -318,6 +325,29 @@ router.post('/:id/approve', authenticateToken, async (req: AuthRequest, res: Res
 
     // Process the approval workflow
     await processApprovalWorkflow(expense.id, action === 'APPROVED');
+
+    // Send email notification to the employee
+    try {
+      const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:8081'}/dashboard`;
+      
+      await emailService.sendApprovalNotification({
+        employeeName: expense.user.name,
+        employeeEmail: expense.user.email,
+        approverName: user.name,
+        expenseTitle: expense.description,
+        expenseAmount: expense.amount,
+        expenseDate: expense.expenseDate,
+        status: action,
+        comments: comments,
+        companyName: expense.company.name,
+        dashboardUrl: dashboardUrl,
+      });
+
+      console.log(`Approval notification sent to ${expense.user.email}`);
+    } catch (emailError) {
+      console.error('Failed to send approval notification:', emailError);
+      // Don't fail the approval if email fails
+    }
 
     res.json({ message: `Expense ${action.toLowerCase()} successfully` });
   } catch (error) {
