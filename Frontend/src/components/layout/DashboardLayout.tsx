@@ -58,7 +58,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { to: "/admin/expenses", label: "All Expenses", icon: Receipt },
   ];
 
-  const links = user?.role === "admin" ? adminLinks : user?.role === "manager" ? managerLinks : employeeLinks;
+  const links = user?.role === "ADMIN" ? adminLinks : user?.role === "MANAGER" ? managerLinks : employeeLinks;
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
@@ -154,7 +154,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <h2 className="text-lg font-semibold text-foreground">
               Welcome back, {user?.name}
             </h2>
-            <p className="text-sm text-muted-foreground capitalize">{user?.role}</p>
+            <p className="text-sm text-muted-foreground capitalize">{user?.role.toLowerCase()}</p>
           </div>
           
           <Button

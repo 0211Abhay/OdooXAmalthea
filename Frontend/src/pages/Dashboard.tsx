@@ -1,9 +1,12 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { DollarSign, TrendingUp, Clock, CheckCircle, BarChart3 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
+import { api, DashboardStats } from "@/lib/api";
+import { toast } from "sonner";
 import {
   BarChart,
   Bar,
@@ -18,6 +21,8 @@ import {
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const expenseData = [
     { month: "Jan", amount: 4500 },
@@ -35,36 +40,62 @@ const Dashboard = () => {
     { category: "Software", amount: 9200 },
   ];
 
-  const stats = [
+  useEffect(() => {
+    fetchDashboardStats();
+  }, []);
+
+  const fetchDashboardStats = async () => {
+    try {
+      const dashboardStats = await api.getDashboardStats("30");
+      setStats(dashboardStats);
+    } catch (error) {
+      console.error("Failed to fetch dashboard stats:", error);
+      toast.error("Failed to load dashboard data");
+      
+      // Fallback stats
+      setStats({
+        totalExpenses: 0,
+        pendingExpenses: 0,
+        approvedExpenses: 0,
+        rejectedExpenses: 0,
+        totalAmount: 0,
+        pendingApprovals: 0,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statCards = stats ? [
     {
       title: "Total Expenses",
-      value: "$35,420",
+      value: stats.totalExpenses.toString(),
       icon: DollarSign,
-      trend: { value: 12.5, isPositive: true },
+      trend: { value: 0, isPositive: true },
       variant: "default" as const,
     },
     {
       title: "Pending Approvals",
-      value: "8",
+      value: user?.isApprover ? stats.pendingApprovals.toString() : stats.pendingExpenses.toString(),
       icon: Clock,
-      description: "Awaiting review",
+      description: user?.isApprover ? "Awaiting your review" : "Awaiting review",
       variant: "warning" as const,
     },
     {
-      title: "Approved This Month",
-      value: "24",
+      title: "Approved Expenses",
+      value: stats.approvedExpenses.toString(),
       icon: CheckCircle,
-      trend: { value: 8.3, isPositive: true },
+      trend: { value: 0, isPositive: true },
       variant: "success" as const,
     },
     {
-      title: "Average Expense",
-      value: "$1,476",
+      title: "Total Amount",
+      value: `$${stats.totalAmount.toLocaleString()}`,
       icon: TrendingUp,
-      trend: { value: 3.2, isPositive: false },
+      trend: { value: 0, isPositive: true },
       variant: "accent" as const,
     },
-  ];
+  ] : [];
 
   return (
     <DashboardLayout>
@@ -79,16 +110,34 @@ const Dashboard = () => {
 
         {/* Stats Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat, index) => (
-            <motion.div
-              key={stat.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <StatCard {...stat} />
-            </motion.div>
-          ))}
+          {loading ? (
+            Array.from({ length: 4 }).map((_, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <Card className="p-6 shadow-md">
+                  <div className="animate-pulse space-y-2">
+                    <div className="h-4 bg-muted rounded w-1/2"></div>
+                    <div className="h-8 bg-muted rounded w-3/4"></div>
+                  </div>
+                </Card>
+              </motion.div>
+            ))
+          ) : (
+            statCards.map((stat, index) => (
+              <motion.div
+                key={stat.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <StatCard {...stat} />
+              </motion.div>
+            ))
+          )}
         </div>
 
         {/* Charts */}
@@ -168,16 +217,16 @@ const Dashboard = () => {
         >
           <Card className="border-l-4 border-l-primary bg-primary/5 p-6">
             <h3 className="font-semibold text-foreground">
-              {user?.role === "admin" && "Admin Dashboard"}
-              {user?.role === "manager" && "Manager Dashboard"}
-              {user?.role === "employee" && "Employee Dashboard"}
+              {user?.role === "ADMIN" && "Admin Dashboard"}
+              {user?.role === "MANAGER" && "Manager Dashboard"}
+              {user?.role === "EMPLOYEE" && "Employee Dashboard"}
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              {user?.role === "admin" &&
+              {user?.role === "ADMIN" &&
                 "Manage users, configure approval flows, and oversee all company expenses."}
-              {user?.role === "manager" &&
+              {user?.role === "MANAGER" &&
                 "Review and approve team expenses, track team spending, and manage approvals."}
-              {user?.role === "employee" &&
+              {user?.role === "EMPLOYEE" &&
                 "Submit expenses, track reimbursements, and view your expense history."}
             </p>
           </Card>

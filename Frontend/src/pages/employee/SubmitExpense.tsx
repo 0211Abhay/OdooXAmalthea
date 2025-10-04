@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Upload, X, FileText, DollarSign, Calendar, Tag } from "lucide-react";
+import { Upload, X, FileText, DollarSign, Calendar, Tag, Eye, Loader2 } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -17,9 +18,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { api, Category, OCRData, CreateExpenseData } from "@/lib/api";
 
 const SubmitExpense = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  // Form state
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
@@ -27,6 +33,137 @@ const SubmitExpense = () => {
   const [description, setDescription] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // OCR and categories state
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [ocrResults, setOcrResults] = useState<OCRData[]>([]);
+  const [isProcessingOCR, setIsProcessingOCR] = useState(false);
+  const [selectedFileForOCR, setSelectedFileForOCR] = useState<number | null>(null);
+
+    // Load categories on component mount
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const categoriesData = await api.getCategories();
+      setCategories(categoriesData);
+    } catch (error) {
+      console.error("Failed to fetch categories:", error);
+      toast.error("Failed to load categories");
+      
+      // Fallback categories for demo purposes
+      const fallbackCategories: Category[] = [
+        { 
+          id: "1", 
+          name: "Travel", 
+          description: "Travel expenses", 
+          isActive: true,
+          companyId: "temp",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        { 
+          id: "2", 
+          name: "Meals & Entertainment", 
+          description: "Food and entertainment", 
+          isActive: true,
+          companyId: "temp",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        { 
+          id: "3", 
+          name: "Office Supplies", 
+          description: "Office supplies and equipment", 
+          isActive: true,
+          companyId: "temp",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        { 
+          id: "4", 
+          name: "Software", 
+          description: "Software and subscriptions", 
+          isActive: true,
+          companyId: "temp",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        { 
+          id: "5", 
+          name: "Equipment", 
+          description: "Equipment purchases", 
+          isActive: true,
+          companyId: "temp",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        { 
+          id: "6", 
+          name: "Training", 
+          description: "Training and education", 
+          isActive: true,
+          companyId: "temp",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        { 
+          id: "7", 
+          name: "Other", 
+          description: "Other expenses", 
+          isActive: true,
+          companyId: "temp",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+      ];
+      setCategories(fallbackCategories);
+    }
+  };
+
+    // OCR Processing function
+  const processOCRForFile = async (file: File, index: number) => {
+    setIsProcessingOCR(true);
+    setSelectedFileForOCR(index);
+
+    try {
+      const result = await api.processOCR(file);
+      const ocrData = result.ocrData;
+
+      // Auto-fill form fields if OCR found data
+      if (ocrData) {
+        setOcrResults(prev => {
+          const newResults = [...prev];
+          newResults[index] = ocrData;
+          return newResults;
+        });
+
+        // Auto-fill form if fields are empty
+        if (!title && ocrData.merchantName) {
+          setTitle(`Receipt from ${ocrData.merchantName}`);
+        }
+        if (!amount && ocrData.totalAmount) {
+          setAmount(ocrData.totalAmount.toString());
+        }
+        if (!date && ocrData.date) {
+          setDate(ocrData.date);
+        }
+        if (!description && ocrData.merchantName) {
+          setDescription(`Expense at ${ocrData.merchantName}`);
+        }
+
+        toast.success(`OCR processed successfully! Confidence: ${Math.round((ocrData.confidence || 0) * 100)}%`);
+      }
+    } catch (error) {
+      console.error("OCR processing error:", error);
+      toast.error("Failed to process OCR");
+    } finally {
+      setIsProcessingOCR(false);
+      setSelectedFileForOCR(null);
+    }
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
@@ -40,29 +177,56 @@ const SubmitExpense = () => {
 
   const removeFile = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
+    setOcrResults((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      // Validate required fields
+      if (!title || !amount || !category || !date) {
+        toast.error("Please fill in all required fields");
+        return;
+      }
 
-    toast.success("Expense submitted successfully!");
-    setIsSubmitting(false);
-    navigate("/employee/history");
+      const expenseData: CreateExpenseData = {
+        description: title,
+        amount: parseFloat(amount),
+        categoryId: category,
+        expenseDate: date,
+        notes: description || undefined,
+        merchantName: ocrResults.length > 0 ? ocrResults[0]?.merchantName : undefined,
+      };
+
+      const newExpense = await api.createExpense(expenseData);
+      
+      // Upload files if any
+      if (files.length > 0) {
+        await uploadReceiptFiles(newExpense.id);
+      }
+
+      toast.success("Expense submitted successfully!");
+      navigate("/employee/history");
+    } catch (error) {
+      console.error("Submit expense error:", error);
+      toast.error("Failed to submit expense");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const categories = [
-    "Travel",
-    "Meals & Entertainment",
-    "Office Supplies",
-    "Software",
-    "Equipment",
-    "Training",
-    "Other",
-  ];
+  const uploadReceiptFiles = async (expenseId: string) => {
+    for (const file of files) {
+      try {
+        await api.uploadReceipt(expenseId, file);
+      } catch (error) {
+        console.error("File upload error:", error);
+        toast.error(`Failed to upload ${file.name}`);
+      }
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -144,8 +308,8 @@ const SubmitExpense = () => {
                   </SelectTrigger>
                   <SelectContent className="z-50 bg-popover">
                     {categories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -201,25 +365,66 @@ const SubmitExpense = () => {
                         animate={{ opacity: 1, x: 0 }}
                         className="flex items-center justify-between rounded-lg border border-border bg-card p-3"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-1">
                           <FileText className="h-5 w-5 text-primary" />
-                          <div>
+                          <div className="flex-1">
                             <p className="text-sm font-medium text-foreground">
                               {file.name}
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {(file.size / 1024).toFixed(1)} KB
+                              {ocrResults[index] && (
+                                <span className="ml-2">
+                                  • OCR: {Math.round((ocrResults[index].confidence || 0) * 100)}% confidence
+                                </span>
+                              )}
                             </p>
+                            {ocrResults[index] && (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {ocrResults[index].totalAmount && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Amount: ${ocrResults[index].totalAmount}
+                                  </Badge>
+                                )}
+                                {ocrResults[index].merchantName && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Merchant: {ocrResults[index].merchantName}
+                                  </Badge>
+                                )}
+                                {ocrResults[index].date && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    Date: {ocrResults[index].date}
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeFile(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => processOCRForFile(file, index)}
+                            disabled={isProcessingOCR}
+                            className="text-xs"
+                          >
+                            {isProcessingOCR && selectedFileForOCR === index ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Eye className="h-3 w-3" />
+                            )}
+                            {ocrResults[index] ? "Re-scan" : "OCR Scan"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeFile(index)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </motion.div>
                     ))}
                   </div>
